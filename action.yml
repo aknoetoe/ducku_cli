@@ -20,5 +20,5 @@ runs:
   using: 'docker'
   image: 'docker://yarax/ducku:latest'
   env:
-    PROJECT_PATH: /github/workspace/${{ inputs.path }}
+    PROJECT_PATH: '.'
     DUCKU_FAIL_ON_ISSUES: 'true'
