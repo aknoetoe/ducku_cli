@@ -56,10 +56,37 @@ class Project:
     def folder_to_skip(self, root, _files=None):
         # _files parameter is kept for backward compatibility but not used
         return Path(root).name in folders_to_skip
+    
+    def _is_code_file(self, file: Path) -> bool:
+        """Check if a file is a code file that should be searched."""
+        # Code file extensions to search
+        code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.go', '.rb', 
+                          '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.hxx',
+                          '.cs', '.php', '.rs', '.kt', '.kts', '.scala', '.swift', '.m', '.mm'}
+        
+        # Files to skip (lock files, logs, configs, etc.)
+        skip_patterns = [
+            '.lock', 'lock.', '.log', 'log.', 'logs.',
+            'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 
+            'Pipfile.lock', 'Gemfile.lock', 'composer.lock', 'Cargo.lock', 'go.sum',
+            'uv.lock', 'pdm.lock', 'poetry.lock'
+        ]
+        
+        file_name = file.name.lower()
+        file_suffix = file.suffix.lower()
+        
+        # Skip if it matches skip patterns
+        if any(pattern in file_name for pattern in skip_patterns):
+            return False
+        
+        # Only include if it has a code extension
+        return file_suffix in code_extensions
 
     def contains_string(self, string: str, source: Source) -> bool:
         for file in self.project_files:
             if file in self.doc_paths:
+                continue
+            if not self._is_code_file(file):
                 continue
             content = file.read_text()
             if string in content:

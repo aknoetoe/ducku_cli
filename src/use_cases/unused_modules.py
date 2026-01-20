@@ -71,12 +71,12 @@ class UnusedModules(BaseUseCase):
             return True
         
         # Check if it's named like a main entry point
-        file_name = file_path.name.lower()
-        if file_name in ('main.py', 'main.rb', 'main.js', 'main.ts', 'main.java', 
-                         'index.py', 'index.rb', 'index.js', 'index.ts',
-                         'cli.py', 'cli.rb', 'cli.js', 'cli.ts',
-                         '__main__.py', 'app.py', 'app.rb', 'server.py', 'server.rb'):
-            return True
+        # file_name = file_path.name.lower()
+        # if file_name in ('main.py', 'main.rb', 'main.js', 'main.ts', 'main.java', 
+        #                  'index.py', 'index.rb', 'index.js', 'index.ts',
+        #                  'cli.py', 'cli.rb', 'cli.js', 'cli.ts',
+        #                  '__main__.py', 'app.py', 'app.rb', 'server.py', 'server.rb'):
+        #     return True
         
         # Language-specific entry point detection
         ext = file_path.suffix.lower()
@@ -168,8 +168,8 @@ class UnusedModules(BaseUseCase):
                 continue
             
             # Skip entry point files (they're meant to be executed, not imported)
-            if self.is_entry_point_file(file_path):
-                continue
+            # if self.is_entry_point_file(file_path):
+            #     continue
             
             # Check if file is supported
             if is_supported_format(file_path.suffix.lower()):
