@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Set, Dict
 from src.core.base_usecase import BaseUseCase
 from src.core.project import Project
+from src.core.report import Report, IssueType
 from src.core.code.dispatcher import collect_imports_from_content, is_supported_format
 
 
@@ -69,14 +70,6 @@ class UnusedModules(BaseUseCase):
         # Check patterns
         if any(pattern in file_str for pattern in entry_patterns):
             return True
-        
-        # Check if it's named like a main entry point
-        # file_name = file_path.name.lower()
-        # if file_name in ('main.py', 'main.rb', 'main.js', 'main.ts', 'main.java', 
-        #                  'index.py', 'index.rb', 'index.js', 'index.ts',
-        #                  'cli.py', 'cli.rb', 'cli.js', 'cli.ts',
-        #                  '__main__.py', 'app.py', 'app.rb', 'server.py', 'server.rb'):
-        #     return True
         
         # Language-specific entry point detection
         ext = file_path.suffix.lower()
@@ -167,10 +160,6 @@ class UnusedModules(BaseUseCase):
             if self.is_test_file(file_path):
                 continue
             
-            # Skip entry point files (they're meant to be executed, not imported)
-            # if self.is_entry_point_file(file_path):
-            #     continue
-            
             # Check if file is supported
             if is_supported_format(file_path.suffix.lower()):
                 module_name = self.get_module_name_from_file(file_path)
@@ -254,12 +243,11 @@ class UnusedModules(BaseUseCase):
 
     def report(self) -> str:
         """Generate a report of unused modules."""
+        result = Report()
         unused_modules = self.find_unused_modules()
         
         if not unused_modules:
-            return ""
-        
-        report = f"Found {len(unused_modules)} unused modules:\n\n"
+            return str(result)
         
         # Group by extension for better organization
         by_extension = {}
@@ -270,12 +258,14 @@ class UnusedModules(BaseUseCase):
             by_extension[ext].append((module_name, file_path))
         
         for ext, modules in by_extension.items():
-            report += f"\n{ext} modules:\n"
-            report += "-" * (len(ext) + 9) + "\n"
-            
             for module_name, file_path in sorted(modules):
                 relative_path = file_path.relative_to(self.project.project_root)
-                report += f"  - {module_name} ({relative_path})\n"
+                result.add_issue(
+                    f"Module '{module_name}' is never imported ({relative_path})",
+                    level=IssueType.WARNING,
+                    module_name=module_name,
+                    file_path=str(relative_path),
+                    extension=ext
+                )
         
-        report += f"\nTotal unused modules: {len(unused_modules)}"
-        return report
+        return str(result)

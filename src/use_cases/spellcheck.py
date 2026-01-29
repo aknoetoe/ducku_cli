@@ -1,5 +1,6 @@
 from src.core.project import Project
 from src.core.base_usecase import BaseUseCase
+from src.core.report import Report, IssueType
 import codespell_lib
 import io
 from contextlib import redirect_stdout, redirect_stderr
@@ -10,7 +11,9 @@ class Misspellings(BaseUseCase):
         super().__init__(project)
         self.name = "spellcheck"
 
-    def report(self):
+    def report(self) -> str:
+        result = Report()
+        
         # Capture output from codespell
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
@@ -22,7 +25,8 @@ class Misspellings(BaseUseCase):
                 doc_files.append(dp.source.metadata["path"])
         
         if not doc_files:
-            return "No documentation files found to check for misspellings.\n"
+            result.add_issue("No documentation files found to check for misspellings.", level=IssueType.WARNING)
+            return str(result)
         
         try:
             # Run codespell with captured output
@@ -37,13 +41,16 @@ class Misspellings(BaseUseCase):
             error_output = stderr_capture.getvalue()
             
             if exit_code == 0 and not output:
-                return ""
+                return str(result)
             elif output:
-                return f"Misspellings found:\n{output}"
+                # Parse the output line by line
+                for line in output.strip().split('\n'):
+                    if line.strip():
+                        result.add_issue(f"Misspelling: {line}", level=IssueType.WARNING, raw_output=line)
             elif error_output:
-                return f"Error checking misspellings: {error_output}"
-            else:
-                return ""
+                result.add_issue(f"Error checking misspellings: {error_output}", level=IssueType.ERROR, error=error_output)
                 
         except (OSError, ValueError) as e:
-            return f"Error running misspelling check: {str(e)}\n"
+            result.add_issue(f"Error running misspelling check: {str(e)}", level=IssueType.ERROR, exception=str(e))
+        
+        return str(result)
