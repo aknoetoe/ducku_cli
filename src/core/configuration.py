@@ -20,6 +20,7 @@ class UseCasesOptions(BaseModel):
     unused_modules: BaseOptions = Field(default_factory=BaseOptions)
     spellcheck: BaseOptions = Field(default_factory=BaseOptions)
     partial_lists: BaseOptions = Field(default_factory=BaseOptions)
+    content_check: BaseOptions = Field(default_factory=BaseOptions)
 
 class Configuration(BaseModel):
     documentation_paths: Optional[List[str]] = Field(default_factory=list)
