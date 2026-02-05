@@ -38,19 +38,6 @@ class ContentCheck(BaseUseCase):
 class DeploymentArtifactsCheck:
     """Check for deployment artifacts and verify they are documented.
 
-    This sub-check looks for:
-    - CI/CD configuration files (.gitlab-ci.yml, .github/workflows/*, etc.)
-    - Dockerfiles and docker-compose files
-    - Kubernetes manifests
-    - Cloud deployment configs (serverless.yml, etc.)
-    - Build automation (Makefile, etc.)
-    - Dependency management (Renovate, Dependabot)
-    - Git hooks (pre-commit)
-    - Container orchestration (Helm, Kubernetes)
-    - Configuration management (Ansible, Vagrant)
-    - Test automation (Tox)
-    - Monorepo tools (Nx)
-
     For each artifact found, it searches for relevant keywords in the documentation.
     If not found, it reports an issue.
     """
@@ -215,7 +202,7 @@ class DeploymentArtifactsCheck:
             return result
 
         # Get all documentation content
-        doc_content = self._get_documentation_content()
+        doc_content = self.project.documentation.content
 
         # Check each artifact type
         for artifact_type, artifacts in found_artifacts.items():
@@ -234,13 +221,7 @@ class DeploymentArtifactsCheck:
 
             if not found_keyword:
                 # Report the issue
-                # Ensure project_root is a Path object for relative_to
-                if isinstance(self.project.project_root, Path):
-                    project_root = self.project.project_root
-                else:
-                    project_root = Path(self.project.project_root)
-
-                artifact_list = ', '.join(str(a.relative_to(project_root)) for a in artifacts[:3])
+                artifact_list = ', '.join(str(a.relative_to(self.project.project_root)) for a in artifacts[:3])
                 if len(artifacts) > 3:
                     artifact_list += f' (and {len(artifacts) - 3} more)'
 
@@ -259,40 +240,18 @@ class DeploymentArtifactsCheck:
         """Find deployment artifacts in the project."""
         found = {key: [] for key in self.DEPLOYMENT_ARTIFACTS.keys()}
 
-        # Ensure project_root is a Path object
-        if isinstance(self.project.project_root, Path):
-            project_root = self.project.project_root
-        else:
-            project_root = Path(self.project.project_root)
-
         for artifact_type, config in self.DEPLOYMENT_ARTIFACTS.items():
             patterns = config['patterns']
 
             for pattern in patterns:
                 # Handle glob patterns
                 if '*' in pattern:
-                    matching_files = list(project_root.glob(pattern))
+                    matching_files = list(self.project.project_root.glob(pattern))
                     found[artifact_type].extend(matching_files)
                 else:
                     # Exact match
-                    file_path = project_root / pattern
+                    file_path = self.project.project_root / pattern
                     if file_path.exists():
                         found[artifact_type].append(file_path)
 
         return found
-
-    def _get_documentation_content(self) -> str:
-        """Get all documentation content as a single string."""
-        content_parts = []
-
-        for doc_part in self.project.documentation.doc_parts:
-            if doc_part.source.type == "file" and "path" in doc_part.source.metadata:
-                file_path = Path(doc_part.source.metadata["path"])
-                if file_path.exists():
-                    try:
-                        content_parts.append(file_path.read_text(encoding='utf-8', errors='ignore'))
-                    except Exception:
-                        # Skip files that can't be read
-                        pass
-
-        return '\n'.join(content_parts)

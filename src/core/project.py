@@ -16,7 +16,7 @@ OS_ROOT_PATHS = [
 
 class Project:
     def __init__(self, project_root: Path):
-        self.project_root = project_root
+        self.project_root = Path(project_root) if not isinstance(project_root, Path) else project_root
         self.doc_paths: list[Path] = []
         self.documentation: Documentation
         self.config = parse_ducku_yaml(project_root)

@@ -200,45 +200,65 @@ class UnusedModules(BaseUseCase):
         
         return all_imports
 
+    def is_documented(self, file_path: Path) -> bool:
+        """Check if the file path is mentioned in any documentation."""
+        relative_path = file_path.relative_to(self.project.project_root)
+        path_str = str(relative_path)
+
+        # Check all documentation parts for mentions of this path
+        for doc_part in self.project.documentation.doc_parts:
+            try:
+                content = doc_part.read()
+                # Check if the path is mentioned in the documentation
+                if path_str in content:
+                    return True
+            except (UnicodeDecodeError, IOError):
+                # Skip files that can't be read
+                continue
+
+        return False
+
     def find_unused_modules(self) -> Dict[str, Path]:
         """Find modules that are defined but never imported."""
         all_modules = self.collect_all_modules()
         all_imports = self.collect_all_imports()
-        
+
         unused_modules = {}
-        
+
         for module_name, file_path in all_modules.items():
             # Check if this module is imported in various ways
             is_imported = False
-            
+
             # Check exact match
             if module_name in all_imports:
                 is_imported = True
                 continue
-            
+
             # Check if any import matches this module
             module_parts = module_name.split('.')
-            
+
             for import_name in all_imports:
                 import_parts = import_name.split('.')
-                
+
                 # Check if the import ends with our module path
                 # For example: "src.core.configuration" should match "core.configuration"
                 if len(import_parts) >= len(module_parts):
                     if import_parts[-len(module_parts):] == module_parts:
                         is_imported = True
                         break
-                
+
                 # Check if our module path ends with the import
                 # For example: "core.configuration" should match "configuration"
                 if len(module_parts) >= len(import_parts):
                     if module_parts[-len(import_parts):] == import_parts:
                         is_imported = True
                         break
-            
+
+            # If not imported, check if it's documented (entry point, endpoint, etc.)
             if not is_imported:
-                unused_modules[module_name] = file_path
-        
+                if not self.is_documented(file_path):
+                    unused_modules[module_name] = file_path
+
         return unused_modules
 
     def report(self) -> str:
