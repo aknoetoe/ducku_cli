@@ -1,0 +1,7 @@
+src/core/issue.py@1: This module is a duplicate of src/core/report.py and not used. It must be removed. But good that it was raised as unused module by the tool itself
+src/core/use_case_result.py@1: Unused module. Must be deleted
+src/use_cases/content_check.py@39: No need to list all the features here again. It's obvious from the code, but must be documented in README in appropriate use case section
+src/use_cases/content_check.py@263: Why is this check here? We must be sure about types of our parameters
+src/use_cases/content_check.py@284: there is already method Documentation.content
+src/use_cases/content_check.py@238: why we check for it again. Type must be persistent everywhere
+test/unit/use_cases/test_link_checker.py@4: the module doesn't exist. Delete the test

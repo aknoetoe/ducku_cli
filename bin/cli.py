@@ -1,9 +1,10 @@
 import os
 import traceback
-from src.use_cases.partial_lists import PartialMatch 
+from src.use_cases.partial_lists import PartialMatch
 from src.use_cases.pattern_search import PatternSearch
 from src.use_cases.unused_modules import UnusedModules
 from src.use_cases.spellcheck import Misspellings
+from src.use_cases.content_check import ContentCheck
 from src.core.project import Project
 
 # ANSI color codes for terminal output
@@ -25,9 +26,10 @@ def start(base):
     try:
         use_cases_to_run = [
             (PartialMatch, "Partial Match Detection"),
-            (PatternSearch, "Pattern Search Analysis"), 
+            (PatternSearch, "Pattern Search Analysis"),
             (UnusedModules, "Unused Modules Detection"),
             (Misspellings, "Misspellings Detection"),
+            (ContentCheck, "Content Check"),
         ]
         p = Project(base)
         found = False
@@ -37,11 +39,12 @@ def start(base):
             if not enabled:
                 continue
             r = uci.report()
-            if r != "":
+            if r.has_issues():
                 found = True
             print(colorized_title(title))
-            if r and r.strip():  # Print the actual results
-                print(r)
+            report_str = str(r)
+            if report_str and report_str.strip():  # Print the actual results
+                print(report_str)
             else:  # No issues found
                 print(f"{Colors.BRIGHT_GREEN}✅ No issues found{Colors.RESET}\n")
         

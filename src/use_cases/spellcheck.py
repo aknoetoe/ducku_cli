@@ -1,5 +1,6 @@
 from src.core.project import Project
 from src.core.base_usecase import BaseUseCase
+from src.core.report import Report, IssueType
 import codespell_lib
 import io
 from contextlib import redirect_stdout, redirect_stderr
@@ -10,20 +11,23 @@ class Misspellings(BaseUseCase):
         super().__init__(project)
         self.name = "spellcheck"
 
-    def report(self):
+    def report(self) -> Report:
+        result = Report()
+
         # Capture output from codespell
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
-        
+
         # Get all documentation files to check
         doc_files = []
         for dp in self.project.documentation.doc_parts:
             if dp.source.type == "file" and "path" in dp.source.metadata:
                 doc_files.append(dp.source.metadata["path"])
-        
+
         if not doc_files:
-            return "No documentation files found to check for misspellings.\n"
-        
+            result.add_issue("No documentation files found to check for misspellings.", level=IssueType.WARNING)
+            return result
+
         try:
             # Run codespell with captured output
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
@@ -32,18 +36,21 @@ class Misspellings(BaseUseCase):
                     '--quiet-level', '2',  # Only show misspellings
                     *doc_files
                 )
-            
+
             output = stdout_capture.getvalue()
             error_output = stderr_capture.getvalue()
-            
+
             if exit_code == 0 and not output:
-                return ""
+                return result
             elif output:
-                return f"Misspellings found:\n{output}"
+                # Parse the output line by line
+                for line in output.strip().split('\n'):
+                    if line.strip():
+                        result.add_issue(f"Misspelling: {line}", level=IssueType.WARNING, raw_output=line)
             elif error_output:
-                return f"Error checking misspellings: {error_output}"
-            else:
-                return ""
-                
+                result.add_issue(f"Error checking misspellings: {error_output}", level=IssueType.ERROR, error=error_output)
+
         except (OSError, ValueError) as e:
-            return f"Error running misspelling check: {str(e)}\n"
+            result.add_issue(f"Error running misspelling check: {str(e)}", level=IssueType.ERROR, exception=str(e))
+
+        return result

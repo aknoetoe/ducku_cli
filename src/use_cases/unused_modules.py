@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Set, Dict
 from src.core.base_usecase import BaseUseCase
 from src.core.project import Project
+from src.core.report import Report, IssueType
 from src.core.code.dispatcher import collect_imports_from_content, is_supported_format
 
 
@@ -70,14 +71,6 @@ class UnusedModules(BaseUseCase):
         if any(pattern in file_str for pattern in entry_patterns):
             return True
         
-        # Check if it's named like a main entry point
-        file_name = file_path.name.lower()
-        if file_name in ('main.py', 'main.rb', 'main.js', 'main.ts', 'main.java', 
-                         'index.py', 'index.rb', 'index.js', 'index.ts',
-                         'cli.py', 'cli.rb', 'cli.js', 'cli.ts',
-                         '__main__.py', 'app.py', 'app.rb', 'server.py', 'server.rb'):
-            return True
-        
         # Language-specific entry point detection
         ext = file_path.suffix.lower()
         if self._is_language_specific_entry_point(file_path, ext):
@@ -107,14 +100,20 @@ class UnusedModules(BaseUseCase):
     def _is_language_specific_entry_point(self, file_path: Path, ext: str) -> bool:
         """Check language-specific patterns for entry points and non-imported files."""
         file_name = file_path.name.lower()
+        file_stem = file_path.stem.lower()
         file_str = str(file_path).lower()
-        
+
+        # Common entry point filenames (language-agnostic)
+        common_entry_points = ['main', 'index', 'cli', 'app']
+        if file_stem in common_entry_points:
+            return True
+
         # Ruby-specific
         if ext == '.rb':
             ruby_entry_patterns = ['winagent', 'register.rb']
             if any(pattern in file_str for pattern in ruby_entry_patterns):
                 return True
-        
+
         # JavaScript-specific
         elif ext == '.js':
             # Config files (used by build tools, not imported)
@@ -167,10 +166,6 @@ class UnusedModules(BaseUseCase):
             if self.is_test_file(file_path):
                 continue
             
-            # Skip entry point files (they're meant to be executed, not imported)
-            if self.is_entry_point_file(file_path):
-                continue
-            
             # Check if file is supported
             if is_supported_format(file_path.suffix.lower()):
                 module_name = self.get_module_name_from_file(file_path)
@@ -211,55 +206,74 @@ class UnusedModules(BaseUseCase):
         
         return all_imports
 
+    def is_documented(self, file_path: Path) -> bool:
+        """Check if the file path is mentioned in any documentation."""
+        relative_path = file_path.relative_to(self.project.project_root)
+        path_str = str(relative_path)
+
+        # Check all documentation parts for mentions of this path
+        for doc_part in self.project.documentation.doc_parts:
+            try:
+                content = doc_part.read()
+                # Check if the path is mentioned in the documentation
+                if path_str in content:
+                    return True
+            except (UnicodeDecodeError, IOError):
+                # Skip files that can't be read
+                continue
+
+        return False
+
     def find_unused_modules(self) -> Dict[str, Path]:
         """Find modules that are defined but never imported."""
         all_modules = self.collect_all_modules()
         all_imports = self.collect_all_imports()
-        
+
         unused_modules = {}
-        
+
         for module_name, file_path in all_modules.items():
             # Check if this module is imported in various ways
             is_imported = False
-            
+
             # Check exact match
             if module_name in all_imports:
                 is_imported = True
                 continue
-            
+
             # Check if any import matches this module
             module_parts = module_name.split('.')
-            
+
             for import_name in all_imports:
                 import_parts = import_name.split('.')
-                
+
                 # Check if the import ends with our module path
                 # For example: "src.core.configuration" should match "core.configuration"
                 if len(import_parts) >= len(module_parts):
                     if import_parts[-len(module_parts):] == module_parts:
                         is_imported = True
                         break
-                
+
                 # Check if our module path ends with the import
                 # For example: "core.configuration" should match "configuration"
                 if len(module_parts) >= len(import_parts):
                     if module_parts[-len(import_parts):] == import_parts:
                         is_imported = True
                         break
-            
+
+            # If not imported, check if it's documented (entry point, endpoint, etc.)
             if not is_imported:
-                unused_modules[module_name] = file_path
-        
+                if not self.is_documented(file_path):
+                    unused_modules[module_name] = file_path
+
         return unused_modules
 
-    def report(self) -> str:
+    def report(self) -> Report:
         """Generate a report of unused modules."""
+        result = Report()
         unused_modules = self.find_unused_modules()
-        
+
         if not unused_modules:
-            return ""
-        
-        report = f"Found {len(unused_modules)} unused modules:\n\n"
+            return result
         
         # Group by extension for better organization
         by_extension = {}
@@ -270,12 +284,14 @@ class UnusedModules(BaseUseCase):
             by_extension[ext].append((module_name, file_path))
         
         for ext, modules in by_extension.items():
-            report += f"\n{ext} modules:\n"
-            report += "-" * (len(ext) + 9) + "\n"
-            
             for module_name, file_path in sorted(modules):
                 relative_path = file_path.relative_to(self.project.project_root)
-                report += f"  - {module_name} ({relative_path})\n"
-        
-        report += f"\nTotal unused modules: {len(unused_modules)}"
-        return report
+                result.add_issue(
+                    f"Module '{module_name}' is never imported ({relative_path})",
+                    level=IssueType.WARNING,
+                    module_name=module_name,
+                    file_path=str(relative_path),
+                    extension=ext
+                )
+
+        return result
