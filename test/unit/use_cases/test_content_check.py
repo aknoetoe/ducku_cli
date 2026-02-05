@@ -37,7 +37,7 @@ docker build -t myapp .
         report = use_case.report()
 
         # Should not report issues because Docker is documented
-        assert report == "", f"Expected no issues but got: {report}"
+        assert not report.has_issues(), f"Expected no issues but got: {report}"
 
 
 def test_deployment_artifacts_found_but_not_documented():
@@ -64,8 +64,8 @@ This is a test project with no deployment documentation.
         report = use_case.report()
 
         # Should report issues because Docker is not documented
-        assert report != "", "Expected issues for undocumented Docker artifact"
-        assert "docker" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Docker artifact"
+        assert "docker" in str(report).lower()
 
 
 def test_ci_cd_artifacts_detection():
@@ -102,8 +102,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues because CI/CD is not documented
-        assert report != "", "Expected issues for undocumented CI/CD artifact"
-        assert "ci" in report.lower() or "workflow" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented CI/CD artifact"
+        assert "ci" in str(report).lower() or "workflow" in str(report).lower()
 
 
 def test_multiple_artifact_types():
@@ -147,8 +147,8 @@ This project uses Docker containers.
         report = use_case.report()
 
         # Should report issues for undocumented CI/CD
-        assert report != "", "Expected issues for undocumented CI/CD"
-        report_lower = report.lower()
+        assert report.has_issues(), "Expected issues for undocumented CI/CD"
+        report_lower = str(report).lower()
 
         # Docker should be documented, so no warning for it
         # But CI/CD should not be documented
@@ -179,7 +179,7 @@ This is a simple test project with no deployment configuration.
         report = use_case.report()
 
         # Should not report any issues
-        assert report == "", f"Expected no issues but got: {report}"
+        assert not report.has_issues(), f"Expected no issues but got: {report}"
 
 
 def test_deployment_artifacts_check_directly():
@@ -242,7 +242,7 @@ This project uses DOCKER for deployment.
         report = use_case.report()
 
         # Should not report issues because "DOCKER" matches "docker"
-        assert report == "", f"Expected no issues but got: {report}"
+        assert not report.has_issues(), f"Expected no issues but got: {report}"
 
 
 def test_makefile_detection():
@@ -279,8 +279,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Makefile
-        assert report != "", "Expected issues for undocumented Makefile"
-        assert "makefile" in report.lower() or "make" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Makefile"
+        assert "makefile" in str(report).lower() or "make" in str(report).lower()
 
 
 def test_precommit_detection():
@@ -313,8 +313,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented pre-commit
-        assert report != "", "Expected issues for undocumented pre-commit"
-        assert "pre-commit" in report.lower() or "precommit" in report.lower() or "hook" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented pre-commit"
+        assert "pre-commit" in str(report).lower() or "precommit" in str(report).lower() or "hook" in str(report).lower()
 
 
 def test_renovate_detection():
@@ -350,8 +350,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Renovate
-        assert report != "", "Expected issues for undocumented Renovate"
-        assert "renovate" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Renovate"
+        assert "renovate" in str(report).lower()
 
 
 def test_dependabot_detection():
@@ -386,8 +386,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Dependabot
-        assert report != "", "Expected issues for undocumented Dependabot"
-        assert "dependabot" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Dependabot"
+        assert "dependabot" in str(report).lower()
 
 
 def test_helm_detection():
@@ -428,8 +428,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Helm
-        assert report != "", "Expected issues for undocumented Helm"
-        assert "helm" in report.lower() or "chart" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Helm"
+        assert "helm" in str(report).lower() or "chart" in str(report).lower()
 
 
 def test_ansible_detection():
@@ -471,8 +471,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Ansible
-        assert report != "", "Expected issues for undocumented Ansible"
-        assert "ansible" in report.lower() or "playbook" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Ansible"
+        assert "ansible" in str(report).lower() or "playbook" in str(report).lower()
 
 
 def test_vagrant_detection():
@@ -506,8 +506,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Vagrant
-        assert report != "", "Expected issues for undocumented Vagrant"
-        assert "vagrant" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Vagrant"
+        assert "vagrant" in str(report).lower()
 
 
 def test_tox_detection():
@@ -540,8 +540,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Tox
-        assert report != "", "Expected issues for undocumented Tox"
-        assert "tox" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Tox"
+        assert "tox" in str(report).lower()
 
 
 def test_nx_detection():
@@ -582,8 +582,8 @@ This is a test project.
         report = use_case.report()
 
         # Should report issues for undocumented Nx
-        assert report != "", "Expected issues for undocumented Nx"
-        assert "nx" in report.lower() or "monorepo" in report.lower()
+        assert report.has_issues(), "Expected issues for undocumented Nx"
+        assert "nx" in str(report).lower() or "monorepo" in str(report).lower()
 
 
 def test_multiple_new_artifacts_comprehensive():
@@ -627,8 +627,8 @@ We use Helm charts for Kubernetes deployment.
         report = use_case.report()
 
         # Should report issues for undocumented artifacts (pre-commit and tox)
-        assert report != "", "Expected issues for undocumented artifacts"
-        report_lower = report.lower()
+        assert report.has_issues(), "Expected issues for undocumented artifacts"
+        report_lower = str(report).lower()
 
         # Makefile and Helm should NOT be reported (documented)
         # But pre-commit and tox should be reported (not documented)
@@ -662,4 +662,4 @@ Run `make build` to compile the project.
         report = use_case.report()
 
         # Should not report issues because Makefile is documented
-        assert report == "", f"Expected no issues but got: {report}"
+        assert not report.has_issues(), f"Expected no issues but got: {report}"

@@ -11,23 +11,23 @@ class Misspellings(BaseUseCase):
         super().__init__(project)
         self.name = "spellcheck"
 
-    def report(self) -> str:
+    def report(self) -> Report:
         result = Report()
-        
+
         # Capture output from codespell
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
-        
+
         # Get all documentation files to check
         doc_files = []
         for dp in self.project.documentation.doc_parts:
             if dp.source.type == "file" and "path" in dp.source.metadata:
                 doc_files.append(dp.source.metadata["path"])
-        
+
         if not doc_files:
             result.add_issue("No documentation files found to check for misspellings.", level=IssueType.WARNING)
-            return str(result)
-        
+            return result
+
         try:
             # Run codespell with captured output
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
@@ -36,12 +36,12 @@ class Misspellings(BaseUseCase):
                     '--quiet-level', '2',  # Only show misspellings
                     *doc_files
                 )
-            
+
             output = stdout_capture.getvalue()
             error_output = stderr_capture.getvalue()
-            
+
             if exit_code == 0 and not output:
-                return str(result)
+                return result
             elif output:
                 # Parse the output line by line
                 for line in output.strip().split('\n'):
@@ -49,8 +49,8 @@ class Misspellings(BaseUseCase):
                         result.add_issue(f"Misspelling: {line}", level=IssueType.WARNING, raw_output=line)
             elif error_output:
                 result.add_issue(f"Error checking misspellings: {error_output}", level=IssueType.ERROR, error=error_output)
-                
+
         except (OSError, ValueError) as e:
             result.add_issue(f"Error running misspelling check: {str(e)}", level=IssueType.ERROR, exception=str(e))
-        
-        return str(result)
+
+        return result

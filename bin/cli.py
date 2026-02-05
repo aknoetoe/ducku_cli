@@ -39,11 +39,12 @@ def start(base):
             if not enabled:
                 continue
             r = uci.report()
-            if r != "":
+            if r.has_issues():
                 found = True
             print(colorized_title(title))
-            if r and r.strip():  # Print the actual results
-                print(r)
+            report_str = str(r)
+            if report_str and report_str.strip():  # Print the actual results
+                print(report_str)
             else:  # No issues found
                 print(f"{Colors.BRIGHT_GREEN}✅ No issues found{Colors.RESET}\n")
         

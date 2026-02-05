@@ -261,13 +261,13 @@ class UnusedModules(BaseUseCase):
 
         return unused_modules
 
-    def report(self) -> str:
+    def report(self) -> Report:
         """Generate a report of unused modules."""
         result = Report()
         unused_modules = self.find_unused_modules()
-        
+
         if not unused_modules:
-            return str(result)
+            return result
         
         # Group by extension for better organization
         by_extension = {}
@@ -287,5 +287,5 @@ class UnusedModules(BaseUseCase):
                     file_path=str(relative_path),
                     extension=ext
                 )
-        
-        return str(result)
+
+        return result

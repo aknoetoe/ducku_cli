@@ -129,7 +129,7 @@ class PatternSearch(BaseUseCase):
                     continue
         return artefacts
 
-    def report(self) -> str:
+    def report(self) -> Report:
         result = Report()
 
         artifacts = self.collect_docs_artifacts(all_patterns)
@@ -145,4 +145,4 @@ class PatternSearch(BaseUseCase):
                     source=artifact.source.get_source_identifier()
                 )
 
-        return str(result)
+        return result

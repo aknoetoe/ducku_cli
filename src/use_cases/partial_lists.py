@@ -55,12 +55,12 @@ class PartialMatch(BaseUseCase):
                     matched_debug=match.matched_debug
                 )
 
-    def report(self) -> str:
+    def report(self) -> Report:
         result = Report()
-        
+
         files_entities = collect_project_entities(self.project)
         docs_entities = collect_docs_entities(self.project.documentation)
-        
+
         # Deduplicate docs containers by source (parent,type) keeping the largest set
         # Normalize strings to avoid minor formatting differences causing splits
         docs_by_source = {}
@@ -76,7 +76,7 @@ class PartialMatch(BaseUseCase):
                     if len(strings_norm) > len(current_strings):
                         docs_by_source[key] = (strings_norm, e)
         unique_docs = [v[1] for v in docs_by_source.values()]
-        
+
         # Deduplicate project containers by normalized entity string sets as well
         seen_proj_sets = []
         unique_proj = []
@@ -88,7 +88,7 @@ class PartialMatch(BaseUseCase):
 
         print(f"{len(files_entities)} files entities collected -> {len(unique_proj)} unique")
         print(f"{len(docs_entities)} docs entities collected -> {len(unique_docs)} unique (kept largest per source)")
-        
+
         self.find_partials(unique_proj, unique_docs, result)
-        
-        return str(result)
+
+        return result

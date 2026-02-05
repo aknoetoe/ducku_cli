@@ -23,7 +23,7 @@ class ContentCheck(BaseUseCase):
             DeploymentArtifactsCheck(project)
         ]
 
-    def report(self) -> str:
+    def report(self) -> Report:
         """Generate a report by running all sub-checks."""
         result = Report()
 
@@ -32,7 +32,7 @@ class ContentCheck(BaseUseCase):
             # Merge issues from sub-reports
             result.issues.extend(sub_report.issues)
 
-        return str(result)
+        return result
 
 
 class DeploymentArtifactsCheck:
