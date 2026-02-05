@@ -22,3 +22,4 @@ runs:
   env:
     PROJECT_PATH: '.'
     DUCKU_FAIL_ON_ISSUES: 'true'
+
