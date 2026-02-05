@@ -100,14 +100,20 @@ class UnusedModules(BaseUseCase):
     def _is_language_specific_entry_point(self, file_path: Path, ext: str) -> bool:
         """Check language-specific patterns for entry points and non-imported files."""
         file_name = file_path.name.lower()
+        file_stem = file_path.stem.lower()
         file_str = str(file_path).lower()
-        
+
+        # Common entry point filenames (language-agnostic)
+        common_entry_points = ['main', 'index', 'cli', 'app']
+        if file_stem in common_entry_points:
+            return True
+
         # Ruby-specific
         if ext == '.rb':
             ruby_entry_patterns = ['winagent', 'register.rb']
             if any(pattern in file_str for pattern in ruby_entry_patterns):
                 return True
-        
+
         # JavaScript-specific
         elif ext == '.js':
             # Config files (used by build tools, not imported)
