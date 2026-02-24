@@ -194,5 +194,101 @@ load 'some_script.rb'
             with self.subTest(file_path=file_path):
                 result = self.unused_modules.is_entry_point_file(file_path)
                 self.assertEqual(result, expected_is_entry_point)
+    def test_is_documented(self):
+        """Test that file paths mentioned in documentation are detected."""
+        from src.core.documentation import Documentation, DocString
+
+        # Create a mock documentation with bin/cli.py mentioned in it
+        readme_content = """
+# My Project
+
+## Usage
+
+Run the CLI:
+```bash
+bin/cli.py
+```
+
+Or use the server endpoint:
+```bash
+python src/server/main.py
+```
+        """
+
+        # Set up the project with documentation
+        self.project.documentation = Documentation()
+        self.project.documentation.doc_parts = [DocString(readme_content)]
+        self.project.project_root = Path("/fake/project")
+
+        # Create the use case with the mocked project
+        unused_modules = UnusedModules(self.project)
+
+        # Test that bin/cli.py is detected as documented
+        cli_path = Path("/fake/project/bin/cli.py")
+        result = unused_modules.is_documented(cli_path)
+        self.assertTrue(result, "bin/cli.py should be detected as documented")
+
+        # Test that src/server/main.py is detected as documented
+        server_path = Path("/fake/project/src/server/main.py")
+        result = unused_modules.is_documented(server_path)
+        self.assertTrue(result, "src/server/main.py should be detected as documented")
+
+        # Test that a non-documented file is not detected
+        other_path = Path("/fake/project/src/utils.py")
+        result = unused_modules.is_documented(other_path)
+        self.assertFalse(result, "src/utils.py should not be detected as documented")
+
+    def test_find_unused_modules_excludes_documented_files(self):
+        """Test that find_unused_modules excludes files mentioned in documentation."""
+        from src.core.documentation import Documentation, DocString
+        from src.helpers.file_system import CachedPath
+
+        # Create a mock documentation with bin/cli.py mentioned in it
+        readme_content = """
+# My Project
+
+## Usage
+
+Run the CLI:
+```bash
+bin/cli.py
+```
+        """
+
+        # Set up the project with documentation
+        self.project.documentation = Documentation()
+        self.project.documentation.doc_parts = [DocString(readme_content)]
+        self.project.project_root = Path("/fake/project")
+
+        # Create mock project files
+        cli_file = CachedPath(Path("/fake/project/bin/cli.py"))
+        utils_file = CachedPath(Path("/fake/project/src/utils.py"))
+        self.project.project_files = [cli_file, utils_file]
+
+        # Create the use case with the mocked project
+        unused_modules = UnusedModules(self.project)
+
+        # Mock the methods to control behavior
+        def mock_collect_all_modules():
+            return {
+                "cli": cli_file,
+                "utils": utils_file
+            }
+
+        def mock_collect_all_imports():
+            return set()  # No imports, so both would be unused
+
+        unused_modules.collect_all_modules = mock_collect_all_modules
+        unused_modules.collect_all_imports = mock_collect_all_imports
+
+        # Find unused modules
+        unused = unused_modules.find_unused_modules()
+
+        # bin/cli.py should NOT be in the unused list (it's documented)
+        self.assertNotIn("cli", unused, "bin/cli.py should not be reported as unused (it's documented)")
+
+        # src/utils.py SHOULD be in the unused list (not documented, not imported)
+        self.assertIn("utils", unused, "src/utils.py should be reported as unused (not documented, not imported)")
+
 if __name__ == "__main__":
     unittest.main()

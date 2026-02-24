@@ -180,8 +180,9 @@ def test_strings_in_project():
     uc = PatternSearch(p)
     report = uc.report()
     print(report)
-    assert report != ""
-    assert "Environment variable" in report
+    assert report.has_issues()
+    report_str = str(report)
+    assert "Environment variable" in report_str
 
 def test_files_in_project():
     # README contains filename which is not used in the project
@@ -190,8 +191,9 @@ def test_files_in_project():
     uc = PatternSearch(p)
     report = uc.report()
     print(report)
-    assert report != ""
-    assert "Filename" in report
+    assert report.has_issues()
+    report_str = str(report)
+    assert "Filename" in report_str
 
 def test_filepaths_in_project():
     # README contains path which is not used in the project
@@ -199,5 +201,6 @@ def test_filepaths_in_project():
     p = Project(path)
     uc = PatternSearch(p)
     report = uc.report()
-    assert report != ""
-    assert "path" in report
+    assert report.has_issues()
+    report_str = str(report)
+    assert "path" in report_str

@@ -8,6 +8,7 @@ from contextlib import redirect_stdout
 from src.use_cases.pattern_search import PatternSearch
 from src.use_cases.unused_modules import UnusedModules
 from src.use_cases.spellcheck import Misspellings
+from src.use_cases.content_check import ContentCheck
 from src.core.project import Project
 
 # ANSI color codes for terminal output
@@ -52,9 +53,10 @@ def start(base, output_format="text"):
     try:
         use_cases_to_run = [
             (PartialMatch, "Partial Match Detection"),
-            (PatternSearch, "Pattern Search Analysis"), 
+            (PatternSearch, "Pattern Search Analysis"),
             (UnusedModules, "Unused Modules Detection"),
             (Misspellings, "Misspellings Detection"),
+            (ContentCheck, "Content Check"),
         ]
         p = Project(base)
         found = False

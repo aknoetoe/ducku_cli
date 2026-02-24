@@ -70,7 +70,7 @@ def soft_overlap_avglen(tokens_a: List[str], tokens_b: List[str], debug: bool = 
     Accounts for token mirror position, informativeness, and Levenshtein similarity.
     """
     if not tokens_a and not tokens_b:
-        return 1.0
+        return 0.0  # Both empty means no meaningful comparison possible
     if not tokens_a or not tokens_b:
         return 0.0
 
@@ -146,8 +146,8 @@ def consists_of_duplicates(lst: List[str]) -> bool:
 
 
 def string_similar(a: str, b: str, debug=False) -> float:
-    a_tokens = [nt for t in tokenize_string(a) if (nt := normalize_string(t))]
-    b_tokens = [nt for t in tokenize_string(b) if (nt := normalize_string(t))]
+    a_tokens = [nt for t in tokenize_string(a) if (nt := normalize_string(t)) and len(nt) > 0]
+    b_tokens = [nt for t in tokenize_string(b) if (nt := normalize_string(t)) and len(nt) > 0]
     return soft_overlap_avglen(a_tokens, b_tokens, debug=debug)
 
 def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> Optional[ListsIntersectionReport]:

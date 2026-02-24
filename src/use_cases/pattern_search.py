@@ -1,6 +1,7 @@
 from src.core.base_usecase import BaseUseCase
 from src.core.documentation import Source
 from src.core.project import Project
+from src.core.report import Report, IssueType
 from dataclasses import dataclass
 from src.core.search_pattern import SearchPattern
 
@@ -128,14 +129,20 @@ class PatternSearch(BaseUseCase):
                     continue
         return artefacts
 
-    def report(self):
-        result = ""
+    def report(self) -> Report:
+        result = Report()
 
         artifacts = self.collect_docs_artifacts(all_patterns)
         # handing everything that was found in docs
         for artifact in artifacts:
             handler = getattr(self.project, artifact.pattern.project_handler)
             if not handler(artifact.match, artifact.source):
-                result += f"{artifact.pattern.name} '{artifact.match}' found in {artifact.source.get_source_identifier()}, but nowhere in the project. Probably outdated artifact\n"
+                result.add_issue(
+                    f"{artifact.pattern.name} '{artifact.match}' found in {artifact.source.get_source_identifier()}, but nowhere in the project. Probably outdated artifact",
+                    level=IssueType.ERROR,
+                    pattern_name=artifact.pattern.name,
+                    match=artifact.match,
+                    source=artifact.source.get_source_identifier()
+                )
 
         return result
