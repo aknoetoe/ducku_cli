@@ -111,21 +111,61 @@ Also feel free to utilize [`Dockerfile`](Dockerfile) to build and use your own i
 
 #### Analyze a Single Project
 
-Interactive mode
+Interactive mode (prompts for path):
 
 ```bash
 ducku
 ```
 
-Use `PROJECT_PATH` environment variable to define the project root
+Using `--target` flag to specify project path:
+
+```bash
+ducku --target /path/to/your/project
+# or short form
+ducku -t /path/to/your/project
+```
+
+Using `PROJECT_PATH` environment variable:
 
 ```bash
 PROJECT_PATH=/path/to/your/project ducku
 ```
 
+**Note:** The `--target` flag takes precedence over the `PROJECT_PATH` environment variable.
+
 #### Analyze Multiple Projects
 ```bash
 MULTI_FOLDER=/path/to/projects/directory ducku
+```
+
+#### Check Version
+```bash
+ducku --version
+# or
+ducku -v
+```
+
+#### Output Formats
+
+Ducku supports multiple output formats for different use cases:
+
+**Text format (default)** - Human-readable with colors and emojis:
+```bash
+ducku
+# or explicitly
+ducku --format text
+```
+
+**JSON format** - Machine-readable structured output:
+```bash
+ducku --format json
+# or short form
+ducku -f json
+```
+
+**HTML format** - HTML with headers and lists:
+```bash
+ducku --format html
 ```
 
 ## ⚙️ Configuration

@@ -3,11 +3,10 @@ from anytree import Node
 from markdown_it import MarkdownIt
 from pathlib import Path
 from src.helpers.json import collect_key_values, IgnoreUnknownTagsLoader
+import re
 import yaml
 import json
 from src.helpers.file_system import FileSystemFolder
-
-SUPPORTED_FORMATS = [".md", ".markdown", "markdown"]
 
 def _inline_text(inline_token):
     parts = []
@@ -62,6 +61,47 @@ def _parse_list(tokens, i, parent):
     return i
 
 
+_ADOC_HEADING_RE = re.compile(r"^(={1,6})\s+(.+)")
+_ADOC_SOURCE_RE = re.compile(r"^\[source[,\s]*([^\],\s]*)")
+_ADOC_BULLET_RE = re.compile(r"^(\*+)\s+(.+)")
+_ADOC_ORDERED_RE = re.compile(r"^(\.+)\s+(.+)")
+
+def _adoc_collect_headings(lines):
+    out = []
+    for line in lines:
+        m = _ADOC_HEADING_RE.match(line)
+        if m:
+            out.append((len(m.group(1)), m.group(2).strip()))
+    return out
+
+def _adoc_parse_list(lines, i, parent):
+    """Parse an AsciiDoc list block starting at line i; returns index after last consumed line."""
+    first_m = _ADOC_BULLET_RE.match(lines[i]) or _ADOC_ORDERED_RE.match(lines[i])
+    if not first_m:
+        return i
+    prefix_char = lines[i][0]  # '*' or '.'
+    base_depth = len(first_m.group(1))
+    list_kind = "ordered_list" if prefix_char == "." else "__bullet_list"
+    list_node = Node(list_kind, parent=parent, kind=list_kind)
+    pattern = _ADOC_ORDERED_RE if prefix_char == "." else _ADOC_BULLET_RE
+    while i < len(lines):
+        m = pattern.match(lines[i])
+        if not m:
+            break
+        depth = len(m.group(1))
+        text = m.group(2).strip()
+        if depth == base_depth:
+            Node(text, parent=list_node, kind="list_item")
+            i += 1
+        elif depth > base_depth:
+            if list_node.children:
+                i = _adoc_parse_list(lines, i, list_node.children[-1])
+            else:
+                i += 1
+        else:
+            break
+    return i
+
 def _parse_code_block(code_content: str, language: str, parent_path: str, parallel_entities):
     """Parse code blocks and extract structured data like YAML/JSON."""
     if language in ("yaml", "yml"):
@@ -101,6 +141,17 @@ class Source:
             return f"{self.doc_format}({self.type})"
 
 class DocPart(ABC):
+    # Maps file extensions / format names to parser method names.
+    # Add an entry here (and the corresponding _parse_* method) to support a new format.
+    FORMAT_PARSERS: dict[str, str] = {
+        "markdown":  "_parse_md",
+        ".md":       "_parse_md",
+        ".markdown": "_parse_md",
+        ".adoc":     "_parse_adoc",
+        ".asciidoc": "_parse_adoc",
+        "asciidoc":  "_parse_adoc",
+    }
+
     def __init__(self, source: Source):
         self.doc_format = source.doc_format
         self.source = source
@@ -113,8 +164,9 @@ class DocPart(ABC):
         ...
 
     def parse(self):
-        if self.doc_format in SUPPORTED_FORMATS:
-            return self._parse_md()
+        parser_name = self.FORMAT_PARSERS.get(self.doc_format)
+        if parser_name:
+            return getattr(self, parser_name)()
         return []
 
     def _parse_md(self):
@@ -181,6 +233,63 @@ class DocPart(ABC):
             i += 1
         return tokens
 
+    def _parse_adoc(self):
+        lines = self.read().splitlines()
+        headings = _adoc_collect_headings(lines)
+        _build_headers_tree(headings, self.headers)
+
+        current_header_path = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+
+            # Track current header context
+            hm = _ADOC_HEADING_RE.match(line)
+            if hm:
+                level = len(hm.group(1))
+                text = hm.group(2).strip()
+                current_header_path = [h for h in current_header_path if h[0] < level]
+                current_header_path.append((level, text))
+                i += 1
+                continue
+
+            # Code blocks: [source,lang] followed by a ---- delimiter line
+            sm = _ADOC_SOURCE_RE.match(line)
+            if sm and i + 1 < len(lines) and lines[i + 1].strip() == "----":
+                language = sm.group(1)
+                i += 2  # skip [source,...] and opening ----
+                code_lines = []
+                while i < len(lines) and lines[i].strip() != "----":
+                    code_lines.append(lines[i])
+                    i += 1
+                parent_path = self.source.get_source_identifier()
+                for level, header_text in current_header_path:
+                    parent_path += f"::h{level}::{header_text}"
+                self.code_blocks.append({
+                    "language": language,
+                    "content": "\n".join(code_lines) + "\n",
+                    "parent_path": parent_path,
+                })
+                i += 1  # skip closing ----
+                continue
+
+            # Lists: bullet (* / **) or ordered (. / ..)
+            if _ADOC_BULLET_RE.match(line) or _ADOC_ORDERED_RE.match(line):
+                list_parent = self.lists
+                for level, header_text in current_header_path:
+                    header_node = None
+                    for child in list_parent.children:
+                        if child.kind == f"h{level}" and child.name == header_text:
+                            header_node = child
+                            break
+                    if not header_node:
+                        header_node = Node(header_text, parent=list_parent, kind=f"h{level}")
+                    list_parent = header_node
+                i = _adoc_parse_list(lines, i, list_parent)
+                continue
+
+            i += 1
+
 class DocString(DocPart):
     def __init__(self, content: str, doc_format: str = "markdown"):
         source = Source("string", doc_format, {"content_preview": content[:50] + "..." if len(content) > 50 else content})
@@ -242,7 +351,7 @@ class Documentation:
             self.process_file(file)
 
     def process_file(self, file: Path):
-        if file.suffix.lower() in SUPPORTED_FORMATS and file.resolve() not in self.paths_to_ignore:
+        if file.suffix.lower() in DocPart.FORMAT_PARSERS and file.resolve() not in self.paths_to_ignore:
             self.doc_parts.append(DocFile(file))
 
     def process_content(self):

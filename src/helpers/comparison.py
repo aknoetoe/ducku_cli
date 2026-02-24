@@ -78,7 +78,8 @@ def soft_overlap_avglen(tokens_a: List[str], tokens_b: List[str], debug: bool = 
     m = len(tokens_b)
 
     best_for_b = [0.0] * m
-    matched_sum = 0.0
+    best_a_for_b = [-1] * m  # which a_i is currently winning each b_j slot
+    best_scores = []  # (best_score, best_j) per a_i, filled after inner loop
 
     if debug:
         print("=========================")
@@ -91,7 +92,7 @@ def soft_overlap_avglen(tokens_a: List[str], tokens_b: List[str], debug: bool = 
             base = token_similar(a, b)
             if base == 0.0:
                 if debug:
-                    print("Comparing tokens '{}' and '{}': similarity=0.0, skipping".format(a, b))
+                    print(f"Comparing tokens '{a}' and '{b}': similarity=0.0, skipping")
                 continue
             p = positional_penalty(i, j)
             wb_j = pos_weight(j) * info_weight(tokens_b[j])
@@ -101,15 +102,25 @@ def soft_overlap_avglen(tokens_a: List[str], tokens_b: List[str], debug: bool = 
                 best_j = j
             if cand > best_for_b[j]:
                 best_for_b[j] = cand
+                best_a_for_b[j] = i  # this a_i is now winning b_j
             if debug:
                 print(f"Comparing tokens '{a}' and '{b}': similarity={base}, penalty={p}, wa={wa_i}, wb={wb_j}, cand={cand}")
-        matched_sum += best
+        best_scores.append((best, best_j))
         if debug:
             if best_j >= 0:
                 print(f"BEST for '{tokens_a[i]}' => '{tokens_b[best_j]}' : {best}")
             else:
                 print(f"BEST for '{tokens_a[i]}' => None : 0.0")
 
+    matched_sum = 0.0
+    # a→b: only count a_i when it is the winner for its best b_j, preventing
+    # loser tokens from inflating the score when multiple a tokens compete for
+    # the same b slot.
+    for i, (best, best_j) in enumerate(best_scores):
+        if best_j >= 0 and best_a_for_b[best_j] == i:
+            matched_sum += best
+
+    # b←a: always add each b_j's best-from-any-a score (once per b slot).
     for j in range(m):
         if best_for_b[j] == 0.0:
             continue
@@ -168,8 +179,10 @@ def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> O
     matched_a_is = []
     matched_b_is = []
     matched_debug = []
-    for a_i, a_item in enumerate(list_a):
+    for a_item in list_a:
         found_b_i_for_a = None
+        best_score = 0.0
+        best_debug_str = None
         for b_i, b_item in enumerate(list_b):
             if b_i in matched_b_is:
                 continue
@@ -177,12 +190,14 @@ def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> O
             debug_str = f"{a_item} => {b_item} ({score})"
             if debug:
                 print(debug_str)
-            if score > LISTS_SIMILARITY_THRESHOLD:
-                
+            if score > LISTS_SIMILARITY_THRESHOLD and score > best_score:
+                best_score = score
                 found_b_i_for_a = b_i
-                matched_debug.append(debug_str)
-                # matched items in the second list must not match anything else to avoid duplicated scores
-                matched_b_is.append(b_i)
+                best_debug_str = debug_str
+        # Consume only the single best-scoring b item, after scanning all candidates
+        if found_b_i_for_a is not None:
+            matched_debug.append(best_debug_str)
+            matched_b_is.append(found_b_i_for_a)
         matched_a_is.append(found_b_i_for_a) # no match for this item
 
     only_a = [list_a[i] for i, matched_b_i in enumerate(matched_a_is) if matched_b_i is None]
