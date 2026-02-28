@@ -2,8 +2,8 @@ from dataclasses import dataclass
 import re
 import math
 from typing import List, Optional
-from collections import Counter
 from rapidfuzz.distance import Levenshtein
+from src.helpers.localization import get_words
 
 TOKENIZE_TRANS_TABLE = str.maketrans({c: " " for c in "_,.;:/|()[]{}*\\"})
 MIN_COMPARED_LIST_LENGTH = 3
@@ -16,10 +16,6 @@ MAX_LEN_BOOST = 12
 TOKENS_ORDER_IMPORTANCE = 2
 TOKENS_FIRST_POS_IMPORTANCE = 2.0
 COVERAGE_ALPHA = 0.6 # too adjust end result not to force values to be too low by coverage
-GENERIC_TOKENS = {
-    "user", "users", "profile", "settings", "config", "data", "list", "item", "items",
-    "get", "set", "create", "update", "delete", "add", "remove", "default", "script"
-}
 
 
 @dataclass
@@ -30,12 +26,13 @@ class ListsIntersectionReport:
 
 def normalize_string(s: str) -> str:
     s = s.lower()
-    s = re.sub(r'[^A-Za-z0-9]', "", s) # removing trash characters
-    s = re.sub(r"^[0-9]+$", "", s) # number-only are not useful
+    s = re.sub(r'[^\w]', "", s) # keep unicode letters/digits (preserves ä, ö, ü, ß, etc.)
+    s = re.sub(r'^[\d_]+$', "", s) # number/underscore-only tokens are not useful
     return s
 
 def tokenize_string(s: str):
-    camel_re = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
+    # Unicode-aware camelCase split: handles Ä/ä, Ö/ö, Ü/ü, ß alongside ASCII
+    camel_re = re.compile(r"[A-ZÄÖÜ]+(?=[A-ZÄÖÜ][a-zäöüß])|[A-ZÄÖÜ]?[a-zäöüß]+|[A-ZÄÖÜ]+|\d+")
     raw = s.translate(TOKENIZE_TRANS_TABLE).split()
     out = []
     for tok in raw:
@@ -62,7 +59,7 @@ def pos_weight(i: int, tau: float = 1.5) -> float:
     return math.exp(-i / tau)
 
 def info_weight(t: str) -> float:
-    return 0.35 if t in GENERIC_TOKENS else 1.0
+    return 0.35 if t in get_words("GENERIC_TOKENS") else 1.0
 
 def soft_overlap_avglen(tokens_a: List[str], tokens_b: List[str], debug: bool = False) -> float:
     """
@@ -150,7 +147,7 @@ def string_similar(a: str, b: str, debug=False) -> float:
     b_tokens = [nt for t in tokenize_string(b) if (nt := normalize_string(t)) and len(nt) > 0]
     return soft_overlap_avglen(a_tokens, b_tokens, debug=debug)
 
-def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> Optional[ListsIntersectionReport]:
+def fuzzy_intersection(list_a: List[str], list_b: List[str], debug: bool = False) -> Optional[ListsIntersectionReport]:
     """
     This function compares 2 lists of string for similarity
     Goal is to find out if the lists belong to the same domain, describing the same properties
@@ -164,13 +161,13 @@ def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> O
     4. If lists are completely identical, it's not our case, nothing is missing
     """
     #print(f"DEBUG: fuzzy_intersection called with list_a={list_a}, list_b={list_b}, debug={debug}")
-    
+
     # small lists are 90% false-positives
     if len(list_a) < MIN_COMPARED_LIST_LENGTH or len(list_b) < MIN_COMPARED_LIST_LENGTH:
         if debug:
             print("Lists too small for reliable comparison", len(list_a), len(list_b), MIN_COMPARED_LIST_LENGTH)
         return None
-    
+
     if abs(len(list_a) - len(list_b)) > MAX_LIST_LENGTHS_DIFF:
         if debug:
             print("Lists length difference too large for reliable comparison", len(list_a), len(list_b), MAX_LIST_LENGTHS_DIFF)
@@ -213,7 +210,7 @@ def fuzzy_intersection(list_a: List[str], list_b: List[str], debug = False) -> O
         if debug:
             print("Lists are completely identical, nothing to report")
         return None
-    
+
     # We cosider lists here being similar. Last check, one list can contain identical items, which has gained the scores.
     # Checking every list for duplicates, not doing it for every pair to improve performance
     if consists_of_duplicates(list_a) or consists_of_duplicates(list_b):

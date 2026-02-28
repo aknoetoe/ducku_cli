@@ -7,6 +7,7 @@ import re
 from src.core.project import Project
 from src.core.base_usecase import BaseUseCase
 from src.core.report import Report, IssueType
+from src.helpers.localization import get_content_keywords
 
 
 class ContentCheck(BaseUseCase):
@@ -42,149 +43,46 @@ class DeploymentArtifactsCheck:
     If not found, it reports an issue.
     """
 
-    # Common deployment artifact patterns
+    # Common deployment artifact patterns (keywords come from localization)
     DEPLOYMENT_ARTIFACTS = {
-        'ci_cd': {
-            'patterns': [
-                '.gitlab-ci.yml',
-                '.github/workflows/*.yml',
-                '.github/workflows/*.yaml',
-                'Jenkinsfile',
-                '.circleci/config.yml',
-                '.travis.yml',
-                'azure-pipelines.yml',
-                'bitbucket-pipelines.yml',
-                '.drone.yml',
-            ],
-            'keywords': ['ci/cd', 'pipeline', 'continuous integration', 'continuous deployment',
-                        'github actions', 'gitlab ci', 'jenkins', 'circleci', 'travis', 'workflow']
-        },
-        'docker': {
-            'patterns': [
-                'Dockerfile',
-                'Dockerfile.*',
-                'docker-compose.yml',
-                'docker-compose.yaml',
-                'docker-compose.*.yml',
-                'docker-compose.*.yaml',
-                '.dockerignore',
-            ],
-            'keywords': ['docker', 'container', 'dockerfile', 'docker-compose', 'image']
-        },
-        'kubernetes': {
-            'patterns': [
-                'k8s/*.yml',
-                'k8s/*.yaml',
-                'kubernetes/*.yml',
-                'kubernetes/*.yaml',
-                'deployment.yml',
-                'deployment.yaml',
-                'service.yml',
-                'service.yaml',
-                'ingress.yml',
-                'ingress.yaml',
-            ],
-            'keywords': ['kubernetes', 'k8s', 'deployment', 'pod', 'service', 'ingress', 'kubectl']
-        },
-        'serverless': {
-            'patterns': [
-                'serverless.yml',
-                'serverless.yaml',
-                'serverless.*.yml',
-                'sam.yml',
-                'sam.yaml',
-                'template.yml',
-                'template.yaml',
-            ],
-            'keywords': ['serverless', 'lambda', 'function', 'sam', 'cloudformation']
-        },
-        'terraform': {
-            'patterns': [
-                '*.tf',
-                'terraform/*.tf',
-                '*.tfvars',
-            ],
-            'keywords': ['terraform', 'infrastructure', 'iac', 'tf']
-        },
-        'makefile': {
-            'patterns': [
-                'Makefile',
-                'makefile',
-                '*.mk',
-                'GNUmakefile',
-            ],
-            'keywords': ['make', 'makefile', 'build', 'compile', 'gmake', 'build system']
-        },
-        'precommit': {
-            'patterns': [
-                '.pre-commit-config.yaml',
-                '.pre-commit-config.yml',
-            ],
-            'keywords': ['pre-commit', 'precommit', 'git hook', 'commit hook', 'pre commit']
-        },
-        'renovate': {
-            'patterns': [
-                'renovate.json',
-                '.renovaterc',
-                '.renovaterc.json',
-                '.renovaterc.json5',
-                '.github/renovate.json',
-                '.gitlab/renovate.json',
-            ],
-            'keywords': ['renovate', 'dependency update', 'automated update', 'renovate bot']
-        },
-        'dependabot': {
-            'patterns': [
-                '.github/dependabot.yml',
-                '.github/dependabot.yaml',
-            ],
-            'keywords': ['dependabot', 'dependency update', 'automated update', 'github bot']
-        },
-        'helm': {
-            'patterns': [
-                'Chart.yaml',
-                'Chart.yml',
-                'values.yaml',
-                'values.yml',
-                'charts/*/Chart.yaml',
-                'helm/*/Chart.yaml',
-            ],
-            'keywords': ['helm', 'helm chart', 'kubernetes package', 'chart', 'helm install']
-        },
-        'ansible': {
-            'patterns': [
-                'ansible.cfg',
-                'playbook.yml',
-                'playbook.yaml',
-                'site.yml',
-                'site.yaml',
-                'ansible/*.yml',
-                'ansible/*.yaml',
-                'inventory.ini',
-                'inventory.yml',
-                'inventory.yaml',
-            ],
-            'keywords': ['ansible', 'playbook', 'automation', 'configuration management', 'ansible-playbook']
-        },
-        'vagrant': {
-            'patterns': [
-                'Vagrantfile',
-            ],
-            'keywords': ['vagrant', 'virtual machine', 'vm', 'vagrantfile', 'vagrant up']
-        },
-        'tox': {
-            'patterns': [
-                'tox.ini',
-            ],
-            'keywords': ['tox', 'test automation', 'virtualenv', 'testing', 'tox environments']
-        },
-        'nx': {
-            'patterns': [
-                'nx.json',
-                'workspace.json',
-            ],
-            'keywords': ['nx', 'monorepo', 'nx workspace', 'nx build', 'nrwl']
-        },
+        'ci_cd': [
+            '.gitlab-ci.yml', '.github/workflows/*.yml', '.github/workflows/*.yaml',
+            'Jenkinsfile', '.circleci/config.yml', '.travis.yml',
+            'azure-pipelines.yml', 'bitbucket-pipelines.yml', '.drone.yml',
+        ],
+        'docker': [
+            'Dockerfile', 'Dockerfile.*',
+            'docker-compose.yml', 'docker-compose.yaml',
+            'docker-compose.*.yml', 'docker-compose.*.yaml', '.dockerignore',
+        ],
+        'kubernetes': [
+            'k8s/*.yml', 'k8s/*.yaml', 'kubernetes/*.yml', 'kubernetes/*.yaml',
+            'deployment.yml', 'deployment.yaml', 'service.yml', 'service.yaml',
+            'ingress.yml', 'ingress.yaml',
+        ],
+        'serverless': [
+            'serverless.yml', 'serverless.yaml', 'serverless.*.yml',
+            'sam.yml', 'sam.yaml', 'template.yml', 'template.yaml',
+        ],
+        'terraform': ['*.tf', 'terraform/*.tf', '*.tfvars'],
+        'makefile': ['Makefile', 'makefile', '*.mk', 'GNUmakefile'],
+        'precommit': ['.pre-commit-config.yaml', '.pre-commit-config.yml'],
+        'renovate': [
+            'renovate.json', '.renovaterc', '.renovaterc.json', '.renovaterc.json5',
+            '.github/renovate.json', '.gitlab/renovate.json',
+        ],
+        'dependabot': ['.github/dependabot.yml', '.github/dependabot.yaml'],
+        'helm': [
+            'Chart.yaml', 'Chart.yml', 'values.yaml', 'values.yml',
+            'charts/*/Chart.yaml', 'helm/*/Chart.yaml',
+        ],
+        'ansible': [
+            'ansible.cfg', 'playbook.yml', 'playbook.yaml', 'site.yml', 'site.yaml',
+            'ansible/*.yml', 'ansible/*.yaml', 'inventory.ini', 'inventory.yml', 'inventory.yaml',
+        ],
+        'vagrant': ['Vagrantfile'],
+        'tox': ['tox.ini'],
+        'nx': ['nx.json', 'workspace.json'],
     }
 
     def __init__(self, project: Project):
@@ -209,7 +107,9 @@ class DeploymentArtifactsCheck:
             if not artifacts:
                 continue
 
-            keywords = self.DEPLOYMENT_ARTIFACTS[artifact_type]['keywords']
+            keywords = get_content_keywords(artifact_type)
+            if not keywords:
+                continue
 
             # Check if any of the keywords appear in documentation
             found_keyword = False
@@ -240,9 +140,7 @@ class DeploymentArtifactsCheck:
         """Find deployment artifacts in the project."""
         found = {key: [] for key in self.DEPLOYMENT_ARTIFACTS.keys()}
 
-        for artifact_type, config in self.DEPLOYMENT_ARTIFACTS.items():
-            patterns = config['patterns']
-
+        for artifact_type, patterns in self.DEPLOYMENT_ARTIFACTS.items():
             for pattern in patterns:
                 # Handle glob patterns
                 if '*' in pattern:

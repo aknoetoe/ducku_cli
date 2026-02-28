@@ -62,6 +62,17 @@ properties:
     default: false
     title: Fail On Issues
     type: boolean
+  languages:
+    default: ["en"]
+    title: Languages
+    description: >
+      List of ISO 639-1 language codes for documentation language(s).
+      Supported values: "en" (English), "de" (German).
+      Controls keyword matching, generic token weighting, and mock-path detection.
+    type: array
+    items:
+      type: string
+      enum: ["en", "de"]
 title: Configuration
 type: object
 $schema: http://json-schema.org/draft-07/schema#

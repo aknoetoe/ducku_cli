@@ -3,6 +3,7 @@ import re
 from src.core.configuration import parse_ducku_yaml, Configuration
 from src.core.documentation import Documentation, Source
 from src.helpers.file_system import FileSystemFolder, folders_to_skip
+from src.helpers.localization import init as init_localization, get_words
 
 # Common OS root paths (Unix/Linux and Windows) - not project-specific
 OS_ROOT_PATHS = [
@@ -20,6 +21,7 @@ class Project:
         self.doc_paths: list[Path] = []
         self.documentation: Documentation
         self.config = parse_ducku_yaml(project_root)
+        init_localization(project_root)
         docs_paths_to_ignore = []
         project_paths_to_ignore = []
         if self.config:
@@ -28,7 +30,7 @@ class Project:
                     self.doc_paths.append(self.resolve_path_from_root(p))
             if self.config.documentation_paths_to_ignore:
                 for p in self.config.documentation_paths_to_ignore:
-                    self.doc_paths.append(self.resolve_path_from_root(p))
+                    docs_paths_to_ignore.append(self.resolve_path_from_root(p))
             if self.config.code_paths_to_ignore:
                 for p in self.config.code_paths_to_ignore:
                     project_paths_to_ignore.append(self.resolve_path_from_root(p))
@@ -39,10 +41,9 @@ class Project:
         self.project_files = self.fs_folder.get_all_files()
         self.walk_items = self.fs_folder.walk_items
         
-        # Automatically detect and add README files to documentation paths
-        for file in self.project_files:
-            if file.name.startswith('README') and file not in self.doc_paths:
-                self.doc_paths.append(file)
+        # If no explicit documentation paths configured, scan the entire project root
+        if not self.doc_paths:
+            self.doc_paths.append(self.project_root)
         
         self.documentation = Documentation(docs_paths_to_ignore).from_project(self)
 
@@ -127,21 +128,9 @@ class Project:
         return self.contains_string(route_path, source)
 
     def contains_path(self, path: str, source: Source) -> bool:
-        # sometimes files appear as examples - skip placeholder-like filenames only
-        # Only skip if the filename (not directory) contains these patterns
-        MOCK_FILENAME_PATTERNS = [
-            "hello", "my_", "path_to", "xxx", "yyy", "zzz", "log_", "log.", "logs.",
-            "myfile", "yourfile"  # common placeholder filenames in docs
-        ]
-        # Skip paths containing these placeholder directory names
-        MOCK_DIR_PATTERNS = [
-            "/some-dir/", "/some_dir/", "/somedir/",  # generic placeholder dirs
-        ]
-        # Skip only if the path is JUST an example placeholder (not a real example directory)
-        MOCK_PATH_PATTERNS = [
-            "/example.py", "/example.js", "/example.ts",  # example.ext files
-            "/sample.py", "/sample.js", "/sample.ts",     # sample.ext files
-        ]
+        MOCK_FILENAME_PATTERNS = get_words("MOCK_FILENAME_PATTERNS")
+        MOCK_DIR_PATTERNS = get_words("MOCK_DIR_PATTERNS")
+        MOCK_PATH_PATTERNS = get_words("MOCK_PATH_PATTERNS")
         # Skip common OS root paths
         if any(path.startswith(prefix) for prefix in OS_ROOT_PATHS):
             return False

@@ -28,6 +28,7 @@ class Configuration(BaseModel):
     documentation_paths_to_ignore: Optional[List[str]] = Field(default_factory=list)
     use_case_options: UseCasesOptions = Field(default_factory=UseCasesOptions)
     fail_on_issues: bool = False
+    languages: List[str] = Field(default_factory=lambda: ["en"])
 
 def load_schema():
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:

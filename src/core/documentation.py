@@ -234,6 +234,7 @@ class DocPart(ABC):
         return tokens
 
     def _parse_adoc(self):
+        print("PARSING ADOC")
         lines = self.read().splitlines()
         headings = _adoc_collect_headings(lines)
         _build_headers_tree(headings, self.headers)
