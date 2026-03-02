@@ -2,6 +2,7 @@ import os
 from typing import List, Optional
 from src.core.documentation import Documentation
 from src.helpers.json import collect_json_keys
+from src.helpers.comparison import normalize_string
 
 class Entity:
     def __init__(self, content: str, entity_object=None):
@@ -50,14 +51,12 @@ def recursive_collect_doc_entities(children, parallel_entities: List[EntitiesCon
             parallel_entities.append(ls)
 
 def collect_docs_entities(documentation: Documentation) -> List[EntitiesContainer]:
-    parallel_entities = []
+    raw = []
     for part in documentation.doc_parts:
         if part.headers and part.headers.children:
-            recursive_collect_doc_entities(part.headers.children, parallel_entities, part.source.get_source_identifier())
+            recursive_collect_doc_entities(part.headers.children, raw, part.source.get_source_identifier())
         if part.lists and part.lists.children:
-            recursive_collect_doc_entities(part.lists.children, parallel_entities, part.source.get_source_identifier())
-        
-        # Process code blocks if they exist
+            recursive_collect_doc_entities(part.lists.children, raw, part.source.get_source_identifier())
         if part.code_blocks:
             from src.core.documentation import _parse_code_block
             for code_block in part.code_blocks:
@@ -65,9 +64,21 @@ def collect_docs_entities(documentation: Documentation) -> List[EntitiesContaine
                     code_block['content'],
                     code_block['language'],
                     code_block['parent_path'],
-                    parallel_entities
+                    raw
                 )
-    return parallel_entities
+    return raw
+
+
+def entities_for_comparison(entities: List[EntitiesContainer]) -> List[EntitiesContainer]:
+    """Return entities filtered and deduplicated, ready for pairwise comparison."""
+    seen = []
+    result = []
+    for e in entities:
+        normalized = sorted([normalize_string(str(entity)) for entity in e.entities])
+        if normalized not in seen and 0 < len(normalized) <= 50:
+            seen.append(normalized)
+            result.append(e)
+    return result
 
 # Extends the entities list
 def collect_json_entities(project, entities):

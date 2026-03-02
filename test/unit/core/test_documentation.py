@@ -169,15 +169,14 @@ def test_nested_doc_headers_in_namespace():
     doc = Documentation().from_string(markdown_content, "markdown")
     entities = collect_docs_entities(doc)
     
-    # Find containers with nested header paths
-    auth_container = None
-    endpoints_container = None
-    
-    for c in entities:
-        if "::h1::API Reference::h2::Authentication" in c.parent:
-            auth_container = c
-        if "::h1::API Reference::h2::Endpoints" in c.parent:
-            endpoints_container = c
+    # Find the direct containers for Authentication and Endpoints (not sub-sections).
+    # We match by suffix so sub-containers like ::h3::OAuth2::bullet_list are excluded.
+    auth_container = next(
+        (c for c in entities if c.parent.endswith("::h2::Authentication")), None
+    )
+    endpoints_container = next(
+        (c for c in entities if c.parent.endswith("::h2::Endpoints")), None
+    )
     
     # Verify Authentication subsection
     assert auth_container is not None, "Should have container for Authentication under API Reference"

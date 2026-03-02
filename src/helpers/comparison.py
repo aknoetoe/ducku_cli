@@ -147,6 +147,48 @@ def string_similar(a: str, b: str, debug=False) -> float:
     b_tokens = [nt for t in tokenize_string(b) if (nt := normalize_string(t)) and len(nt) > 0]
     return soft_overlap_avglen(a_tokens, b_tokens, debug=debug)
 
+PATH_RELEVANCE_THRESHOLD = 0.4
+
+# Structural markers in entity parent paths that carry no semantic meaning
+_PATH_STRUCTURAL_TOKENS = {"h1", "h2", "h3", "h4", "h5", "h6", "bullet_list", "ordered_list"}
+
+
+def _extract_meaningful_path_segments(path: str) -> List[str]:
+    """Split a path string into meaningful segments, stripping structural noise."""
+    result = []
+    for part in re.split(r'::|/', path):
+        part = re.sub(r'\.\w+$', '', part)  # strip file extension
+        normalized = normalize_string(part)
+        if not normalized or normalized in _PATH_STRUCTURAL_TOKENS:
+            continue
+        result.append(part)
+    return result
+
+
+def paths_similar(path_a: str, path_b: str) -> float:
+    """Compare two entity path strings for semantic relevance.
+
+    Compares code paths (e.g. 'src/use_cases/partial_lists.py') against doc
+    paths (e.g. 'README.md::h2::Use Cases::h3::Partial Match Detection').
+    Later segments (leaves) are weighted more heavily.
+
+    Returns a score in [0, 1]. Use PATH_RELEVANCE_THRESHOLD to decide relevance.
+    """
+    segments_a = _extract_meaningful_path_segments(path_a)
+    segments_b = _extract_meaningful_path_segments(path_b)
+    if not segments_a or not segments_b:
+        return 0.0
+    n = len(segments_a)
+    total_score = 0.0
+    total_weight = 0.0
+    for i, seg_a in enumerate(segments_a):
+        weight = (i + 1) / n  # leaf gets weight 1.0, root gets 1/n
+        best = max((string_similar(seg_a, seg_b) for seg_b in segments_b), default=0.0)
+        total_score += best * weight
+        total_weight += weight
+    return total_score / total_weight if total_weight > 0 else 0.0
+
+
 def fuzzy_intersection(list_a: List[str], list_b: List[str], debug: bool = False) -> Optional[ListsIntersectionReport]:
     """
     This function compares 2 lists of string for similarity
